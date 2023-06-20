@@ -76,8 +76,10 @@ void shell_execute(char** tokens, int* background_process_list, int* size)
 	// If the last token is '&', then it is a background process
 	if(strcmp(tokens[num_of_tokens-1], "&") == 0) 
 	{
-		// Then just make last token NULL( because will use it as list for execv call) and toggle the variable for background process. 
-		tokens[--num_of_tokens] = NULL;
+		// free the memor of & in the last token and make it point to null. And toggle the boolean flag
+		free(tokens[num_of_tokens-1]);
+		tokens[num_of_tokens-1] = NULL;
+		num_of_tokens--;
 		is_background_process = true;
 	}
 
@@ -121,6 +123,21 @@ void shell_execute(char** tokens, int* background_process_list, int* size)
 			waitpid(pid, &status, 0);
 		}
 	}
+}
+
+// To kill the current process or shell
+void quit_shell(int* background_process_list, int* size)
+{
+	// First kill every background process whose PId is stored in background_process_list
+	for(int i=0; background_process_list[i] != -1; i++)
+	{
+		// if(background_process_list[i] == -1) continue;
+		kill(background_process_list[i], SIGKILL);
+	}
+	// Clear memory
+	free(background_process_list);
+	// End the parent process.
+	exit(0);
 }
 
 // This function reaps child processes.
@@ -173,8 +190,18 @@ int main(int argc, char* argv[]) {
 		
 		// If nothing is typed in prompt, then continue
 		if(tokens[0] == NULL) continue;
+		// If command is exit, then quit
+		if(strcmp(tokens[0], "exit") == 0) 
+		{
+			for(int j=0; tokens[j] != NULL;j++)
+			{
+				free(tokens[j]);
+			}
+			free(tokens);
+			quit_shell(background_process_list, &size);
+		}
 		// If command is not  "cd", then call shell_execute
-		if(strcmp(tokens[0], "cd")) shell_execute(tokens, background_process_list, &size);
+		else if(strcmp(tokens[0], "cd") != 0) shell_execute(tokens, background_process_list, &size);
 		// else call cd_system_call
 		else cd_system_call(tokens);
 
@@ -189,7 +216,7 @@ int main(int argc, char* argv[]) {
 		// 	printf("found token %s (remove this debug output later)\n", tokens[i])
        
 		// Freeing the allocated memory	
-		for(i=0;tokens[i]!=NULL;i++){
+		for(i=0; tokens[i] != NULL;i++){
 			free(tokens[i]);
 		}
 		free(tokens);
